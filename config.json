@@ -1,0 +1,9 @@
+{
+    "test_sizes": [100, 250, 500, 1000],
+    "block_size": 32,
+    "verify_size": 64,
+    "worker_counts": [1, 2, 4],
+    "gpu_enabled": true,
+    "log_level": "INFO",
+    "output_dir": "output"
+}
