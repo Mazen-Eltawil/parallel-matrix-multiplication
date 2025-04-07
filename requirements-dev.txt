@@ -1,0 +1,5 @@
+black>=23.0.0
+flake8>=6.0.0
+pytest-cov>=4.0.0
+pre-commit>=3.0.0
+pylint>=2.16.0
