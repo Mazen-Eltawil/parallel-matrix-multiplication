@@ -1,6 +1,9 @@
 numpy>=1.21.0
-matplotlib>=3.5.0
+matplotlib>=3.4.0
 psutil>=5.8.0
-pytest>=7.0.0
+pytest>=6.2.5
+tk>=0.1.0  # For GUI
+flake8>=3.9.0  # For code quality checks
+black>=21.5b2  # For code formatting
 cupy-cuda11x>=11.0.0; platform_system != "Windows"  # Optional: GPU support for non-Windows systems
 pytest-cov>=4.0.0  # For test coverage
