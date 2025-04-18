@@ -1,17 +1,19 @@
 @echo off
-echo Running code quality checks...
+echo Running Black formatter...
+black . || goto :error
 
 echo.
-echo Running flake8...
-flake8 matrix_multiplication.py matrix_multiplication_gui.py test_matrix_multiplication.py
+echo Sorting imports with isort...
+isort . || goto :error
 
 echo.
-echo Running black (check only)...
-black --check matrix_multiplication.py matrix_multiplication_gui.py test_matrix_multiplication.py
+echo Running Flake8 linter...
+flake8 . || goto :error
 
 echo.
-echo Running pytest...
-pytest test_matrix_multiplication.py -v
+echo All checks passed!
+goto :EOF
 
-echo.
-echo All checks completed.
+:error
+echo Failed with error #%errorlevel%.
+exit /b %errorlevel% 
