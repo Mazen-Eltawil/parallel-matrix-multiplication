@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+import json
 
 import numpy as np
 import pytest
@@ -113,6 +114,14 @@ def test_cleanup(matrix_mult):
     """Test cleanup of shared memory."""
     matrix_mult.shared_memory_registry.cleanup()
     assert len(matrix_mult.shared_memory_registry.blocks) == 0
+
+def test_config_loading():
+    """Test configuration loading from file."""
+    config = Config.from_file("config.json")
+    assert config.test_sizes == [100, 250, 500, 1000]
+    assert config.block_size == 32
+    assert config.verify_size == 64
+    assert config.worker_counts == [1, 2, 4]
 
 if __name__ == "__main__":
     pytest.main(["-v"])
