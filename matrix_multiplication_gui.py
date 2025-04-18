@@ -288,427 +288,306 @@ class VisualizationFrame(ttk.LabelFrame):
 
 
 class MatrixMultiplicationGUI:
-    """Main GUI application for matrix multiplication benchmarking."""
+    """Main GUI class for matrix multiplication benchmarks."""
     
-    def __init__(self, root):
-        """Initialize the GUI application."""
+    def __init__(self, root: tk.Tk):
+        """Initialize the GUI."""
         self.root = root
-        self.root.title("Matrix Multiplication Benchmark")
-        self.root.geometry("1200x800")
-        self.root.minsize(800, 600)
+        self.root.title('Parallel Matrix Multiplication Benchmark')
+        self.root.geometry('1000x800')  # Increased size for visualization
         
-        # Create main frame
-        self.main_frame = ttk.Frame(root, padding=10)
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Initialize method variables dictionary
+        # Initialize variables
+        self.benchmark_thread = None
+        self.logging_handler = None
         self.method_vars = {}
+        self.animation_speed = tk.DoubleVar(value=1.0)  # Animation speed multiplier
         
-        # Create configuration section
+        # Create main sections
         self.create_config_section()
-        
-        # Create methods selection section
         self.create_methods_section()
-        
-        # Create execution control section
         self.create_execution_section()
-        
-        # Create output/logging section
+        self.create_visualization_section()  # New visualization section
         self.create_output_section()
-        
-        # Create visualization section
-        self.create_visualization_section()
-        
-        # Create results section
         self.create_results_section()
         
-        # Configure logging
-        self.setup_logging()
+        # Load default config
+        self.load_default_config()
         
-        # Initialize animation speed control
-        self.animation_speed = tk.DoubleVar(value=1.0)
-        
-        # Log startup
-        logging.info("Matrix Multiplication Benchmark GUI started")
-        logging.info(f"Output directory set to: {self.output_dir_var.get()}")
-        
-    def setup_logging(self):
-        """Configure logging to write to the GUI text widget."""
-        # Get the root logger
-        root_logger = logging.getLogger()
-        
-        # Create and add the custom handler for the GUI
-        gui_handler = GuiLoggingHandler(self.log_text)
-        gui_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', 
-                                         datefmt='%Y-%m-%d %H:%M:%S')
-        gui_handler.setFormatter(gui_formatter)
-        root_logger.addHandler(gui_handler)
-        
-        # Set the log level from the GUI setting
-        root_logger.setLevel(getattr(logging, self.log_level_var.get()))
-        
-    def cleanup_logging(self):
-        """Clean up logging handlers to prevent memory leaks."""
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers[:]:
-            if isinstance(handler, GuiLoggingHandler):
-                root_logger.removeHandler(handler)
-    
     def create_config_section(self):
         """Create the configuration section of the GUI."""
-        config_frame = ttk.LabelFrame(self.main_frame, text="Configuration", padding=10)
+        config_frame = ttk.LabelFrame(self.root, text='Configuration', padding=10)
         config_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Matrix sizes
-        ttk.Label(config_frame, text="Matrix Sizes (comma-separated):").grid(
-            row=0, column=0, sticky=tk.W, padx=5, pady=5
-        )
-        self.matrix_sizes_var = tk.StringVar(value="100, 250, 500, 1000")
-        ttk.Entry(config_frame, textvariable=self.matrix_sizes_var).grid(
-            row=0, column=1, sticky=tk.EW, padx=5, pady=5
-        )
+        ttk.Label(config_frame, text='Matrix Sizes:').grid(row=0, column=0, sticky=tk.W)
+        self.matrix_sizes_var = tk.StringVar(value='100, 250, 500')
+        size_entry = ttk.Entry(config_frame, textvariable=self.matrix_sizes_var)
+        size_entry.grid(row=0, column=1, sticky=tk.EW)
+        self.create_tooltip(size_entry, "Comma-separated list of matrix sizes to test (e.g., 100, 250, 500)")
         
         # Worker counts
-        ttk.Label(config_frame, text="Worker Counts (comma-separated):").grid(
-            row=1, column=0, sticky=tk.W, padx=5, pady=5
-        )
-        self.worker_counts_var = tk.StringVar(value="1, 2, 4")
-        ttk.Entry(config_frame, textvariable=self.worker_counts_var).grid(
-            row=1, column=1, sticky=tk.EW, padx=5, pady=5
-        )
+        ttk.Label(config_frame, text='Worker Counts:').grid(row=1, column=0, sticky=tk.W)
+        self.worker_counts_var = tk.StringVar(value='1, 2, 4')
+        worker_entry = ttk.Entry(config_frame, textvariable=self.worker_counts_var)
+        worker_entry.grid(row=1, column=1, sticky=tk.EW)
+        self.create_tooltip(worker_entry, "Comma-separated list of worker counts (e.g., 1, 2, 4)")
         
         # Block size
-        ttk.Label(config_frame, text="Block Size:").grid(
-            row=2, column=0, sticky=tk.W, padx=5, pady=5
-        )
-        self.block_size_var = tk.StringVar(value="32")
-        ttk.Entry(config_frame, textvariable=self.block_size_var).grid(
-            row=2, column=1, sticky=tk.EW, padx=5, pady=5
-        )
+        ttk.Label(config_frame, text='Block Size:').grid(row=2, column=0, sticky=tk.W)
+        self.block_size_var = tk.StringVar(value='32')
+        block_entry = ttk.Entry(config_frame, textvariable=self.block_size_var)
+        block_entry.grid(row=2, column=1, sticky=tk.EW)
+        self.create_tooltip(block_entry, "Size of blocks for blocked multiplication methods (e.g., 32)")
         
         # Number of runs
-        ttk.Label(config_frame, text="Number of Runs:").grid(
-            row=0, column=2, sticky=tk.W, padx=5, pady=5
-        )
-        self.num_runs_var = tk.StringVar(value="3")
-        ttk.Entry(config_frame, textvariable=self.num_runs_var).grid(
-            row=0, column=3, sticky=tk.EW, padx=5, pady=5
-        )
+        ttk.Label(config_frame, text='Number of Runs:').grid(row=3, column=0, sticky=tk.W)
+        self.num_runs_var = tk.StringVar(value='3')
+        runs_entry = ttk.Entry(config_frame, textvariable=self.num_runs_var)
+        runs_entry.grid(row=3, column=1, sticky=tk.EW)
+        self.create_tooltip(runs_entry, "Number of times to run each test for averaging (e.g., 3)")
         
         # Output directory
-        ttk.Label(config_frame, text="Output Directory:").grid(
-            row=1, column=2, sticky=tk.W, padx=5, pady=5
-        )
-        self.output_dir_var = tk.StringVar(value="output")
-        ttk.Entry(config_frame, textvariable=self.output_dir_var).grid(
-            row=1, column=3, sticky=tk.EW, padx=5, pady=5
-        )
-        ttk.Button(
-            config_frame, 
-            text="Browse...", 
-            command=self.browse_output_dir
-        ).grid(row=1, column=4, padx=5, pady=5)
+        ttk.Label(config_frame, text='Output Directory:').grid(row=4, column=0, sticky=tk.W)
+        self.output_dir_var = tk.StringVar(value='output')
+        dir_entry = ttk.Entry(config_frame, textvariable=self.output_dir_var)
+        dir_entry.grid(row=4, column=1, sticky=tk.EW)
+        browse_btn = ttk.Button(config_frame, text='Browse...', command=self.browse_output_dir)
+        browse_btn.grid(row=4, column=2)
+        self.create_tooltip(dir_entry, "Directory where results and plots will be saved")
         
         # Log level
-        ttk.Label(config_frame, text="Log Level:").grid(
-            row=2, column=2, sticky=tk.W, padx=5, pady=5
-        )
-        self.log_level_var = tk.StringVar(value="INFO")
-        ttk.Combobox(
+        ttk.Label(config_frame, text='Log Level:').grid(row=5, column=0, sticky=tk.W)
+        self.log_level_var = tk.StringVar(value='INFO')
+        log_combo = ttk.Combobox(
             config_frame,
             textvariable=self.log_level_var,
-            values=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            state="readonly"
-        ).grid(row=2, column=3, sticky=tk.EW, padx=5, pady=5)
+            values=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+            state='readonly'
+        )
+        log_combo.grid(row=5, column=1, sticky=tk.EW)
+        self.create_tooltip(log_combo, "Logging verbosity level")
         
         # Configure grid
         config_frame.columnconfigure(1, weight=1)
-        config_frame.columnconfigure(3, weight=1)
+        
+    def create_tooltip(self, widget, text):
+        """Create a tooltip for a widget.
+        
+        Parameters
+        ----------
+        widget : tk.Widget
+            The widget to add a tooltip to
+        text : str
+            The tooltip text
+        """
+        def show_tooltip(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            
+            label = ttk.Label(tooltip, text=text, justify=tk.LEFT,
+                            background="#ffffe0", relief=tk.SOLID, borderwidth=1)
+            label.pack()
+            
+            def hide_tooltip():
+                tooltip.destroy()
+            
+            widget.tooltip = tooltip
+            widget.bind('<Leave>', lambda e: hide_tooltip())
+            tooltip.bind('<Leave>', lambda e: hide_tooltip())
+            
+        widget.bind('<Enter>', show_tooltip)
         
     def create_methods_section(self):
         """Create the methods selection section of the GUI."""
-        methods_frame = ttk.LabelFrame(self.main_frame, text="Methods", padding=10)
+        methods_frame = ttk.LabelFrame(self.root, text='Methods Selection', padding=10)
         methods_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        # Create checkbuttons for each method
+        # Available methods
         methods = [
-            "NumPy (Baseline)", 
-            "Threading", 
-            "Multiprocessing", 
-            "Shared Memory MP", 
-            "Sequential Blocked", 
-            "Parallel Blocked Shared", 
-            "ProcessPoolExecutor", 
-            "ThreadPoolExecutor", 
-            "Sequential"
+            'NumPy (Baseline)',
+            'Threading',
+            'Multiprocessing',
+            'Shared Memory MP',
+            'Sequential Blocked',
+            'Parallel Blocked Shared',
+            'ProcessPoolExecutor',
+            'ThreadPoolExecutor',
+            'Sequential'
         ]
         
-        # Initialize method_vars dictionary with variables for each method
-        # and create checkbuttons
-        col, row = 0, 0
-        for method in methods:
-            self.method_vars[method] = tk.BooleanVar(value=True)
-            cb = ttk.Checkbutton(
+        # Create checkbuttons
+        for i, method in enumerate(methods):
+            var = tk.BooleanVar(value=True)
+            self.method_vars[method] = var
+            ttk.Checkbutton(
                 methods_frame,
                 text=method,
-                variable=self.method_vars[method]
-            )
-            cb.grid(row=row, column=col, sticky=tk.W, padx=5, pady=2)
-            col += 1
-            if col > 2:
-                col = 0
-                row += 1
-        
-        # Buttons for selecting all/none
-        button_frame = ttk.Frame(methods_frame)
-        button_frame.grid(row=row+1, column=0, columnspan=3, sticky=tk.W, padx=5, pady=5)
-        
-        ttk.Button(
-            button_frame,
-            text="Select All",
-            command=lambda: [var.set(True) for var in self.method_vars.values()]
-        ).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(
-            button_frame,
-            text="Select None",
-            command=lambda: [var.set(False) for var in self.method_vars.values()]
-        ).pack(side=tk.LEFT, padx=5)
-        
+                variable=var
+            ).grid(row=i // 3, column=i % 3, sticky=tk.W, padx=5)
+            
     def create_execution_section(self):
         """Create the execution control section of the GUI."""
-        execution_frame = ttk.LabelFrame(self.main_frame, text="Execution Control", padding=10)
-        execution_frame.pack(fill=tk.X, padx=5, pady=5)
+        exec_frame = ttk.LabelFrame(self.root, text='Execution Control', padding=10)
+        exec_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        # Run button
-        self.run_button = ttk.Button(
-            execution_frame,
-            text="Run Benchmark",
+        # Control buttons
+        self.load_config_btn = ttk.Button(
+            exec_frame,
+            text='Load Config',
+            command=self.load_config
+        )
+        self.load_config_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.save_config_btn = ttk.Button(
+            exec_frame,
+            text='Save Config',
+            command=self.save_config
+        )
+        self.save_config_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.run_btn = ttk.Button(
+            exec_frame,
+            text='Run Benchmark',
             command=self.run_benchmark
         )
-        self.run_button.pack(side=tk.LEFT, padx=5)
-        
-        # Stop button
-        self.stop_button = ttk.Button(
-            execution_frame,
-            text="Stop",
-            command=self.stop_benchmark,
-            state=tk.DISABLED
-        )
-        self.stop_button.pack(side=tk.LEFT, padx=5)
-        
-        # Status label
-        self.status_var = tk.StringVar(value="Ready")
-        status_label = ttk.Label(
-            execution_frame,
-            textvariable=self.status_var,
-            font=('TkDefaultFont', 10, 'bold')
-        )
-        status_label.pack(side=tk.LEFT, padx=20)
-        
-        # Progress bar
-        self.progress = ttk.Progressbar(execution_frame, mode='indeterminate')
-        self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-    def create_output_section(self):
-        """Create the output/logging section of the GUI."""
-        output_frame = ttk.LabelFrame(self.main_frame, text="Output/Logging", padding=10)
-        output_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Log text area
-        self.log_text = scrolledtext.ScrolledText(
-            output_frame,
-            wrap=tk.WORD,
-            height=10,
-            width=80,
-            font=('Courier', 9)
-        )
-        self.log_text.pack(fill=tk.BOTH, expand=True)
-        self.log_text.config(state=tk.DISABLED)
-        
-        # Button frame
-        button_frame = ttk.Frame(output_frame)
-        button_frame.pack(fill=tk.X, pady=(5, 0))
-        
-        # Clear button
-        ttk.Button(
-            button_frame,
-            text="Clear Log",
-            command=self.clear_log
-        ).pack(side=tk.LEFT, padx=5)
-        
-        # Save button
-        ttk.Button(
-            button_frame,
-            text="Save Log",
-            command=self.save_log
-        ).pack(side=tk.LEFT, padx=5)
+        self.run_btn.pack(side=tk.LEFT, padx=5)
         
     def create_visualization_section(self):
         """Create the visualization section of the GUI."""
-        self.viz_frame = VisualizationFrame(self.main_frame)
+        # Create visualization frame
+        self.viz_frame = VisualizationFrame(self.root)
         self.viz_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
+    def create_output_section(self):
+        """Create the output/logging section of the GUI."""
+        output_frame = ttk.LabelFrame(self.root, text='Output / Logging', padding=10)
+        output_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Scrolled text widget for logging
+        self.log_text = scrolledtext.ScrolledText(
+            output_frame,
+            wrap=tk.WORD,
+            height=10
+        )
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        self.log_text.configure(state='disabled')
+        
     def create_results_section(self):
-        """Create the results section of the GUI."""
-        results_frame = ttk.LabelFrame(self.main_frame, text="Results", padding=10)
+        """Create the results display section of the GUI."""
+        results_frame = ttk.LabelFrame(self.root, text='Results', padding=10)
         results_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        # Button to show latest plot
-        self.show_plot_button = ttk.Button(
-            results_frame,
-            text="Show Performance Plot",
-            command=self.show_latest_plot,
-            state=tk.DISABLED
-        )
-        self.show_plot_button.pack(side=tk.LEFT, padx=5)
+        # Placeholder for results buttons
+        self.results_buttons_frame = ttk.Frame(results_frame)
+        self.results_buttons_frame.pack(fill=tk.X)
         
-        # Button to open output directory
-        ttk.Button(
-            results_frame,
-            text="Open Output Directory",
-            command=self.open_output_dir
-        ).pack(side=tk.LEFT, padx=5)
-        
-        # Button to show latest performance data
-        self.show_data_button = ttk.Button(
-            results_frame,
-            text="Show Performance Data",
-            command=self.show_performance_data,
-            state=tk.DISABLED
-        )
-        self.show_data_button.pack(side=tk.LEFT, padx=5)
-    
     def browse_output_dir(self):
-        """Open a dialog to select output directory."""
+        """Open a directory browser dialog for selecting the output directory."""
         directory = filedialog.askdirectory(
-            initialdir=self.output_dir_var.get() or os.getcwd(),
-            title="Select Output Directory"
+            initialdir=self.output_dir_var.get(),
+            title='Select Output Directory'
         )
         if directory:
             self.output_dir_var.set(directory)
-            logging.info(f"Output directory set to: {directory}")
             
     def clear_log(self):
         """Clear the log text widget."""
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.delete(1.0, tk.END)
-        self.log_text.config(state=tk.DISABLED)
+        self.log_text.configure(state='normal')
+        self.log_text.delete('1.0', tk.END)
+        self.log_text.configure(state='disabled')
         
-    def save_log(self):
-        """Save log contents to a file."""
-        filename = filedialog.asksaveasfilename(
-            initialdir=self.output_dir_var.get() or os.getcwd(),
-            title="Save Log File",
-            filetypes=(("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")),
-            defaultextension=".log"
+    def load_default_config(self):
+        """Load default configuration from config.json if it exists."""
+        try:
+            with open('config.json', 'r') as f:
+                config_data = json.load(f)
+                # Remove gpu_enabled if present
+                config_data.pop('gpu_enabled', None)
+                config = Config(**config_data)
+                
+            self.matrix_sizes_var.set(', '.join(map(str, config.test_sizes)))
+            self.worker_counts_var.set(', '.join(map(str, config.worker_counts)))
+            self.block_size_var.set(str(config.block_size))
+            self.output_dir_var.set(config.output_dir)
+            self.log_level_var.set(config.log_level)
+        except Exception as e:
+            logging.warning(f"Could not load default config: {e}")
+            
+    def load_config(self):
+        """Load configuration from a JSON file."""
+        filename = filedialog.askopenfilename(
+            filetypes=[('JSON files', '*.json'), ('All files', '*.*')],
+            title='Load Configuration'
         )
         if filename:
             try:
-                with open(filename, 'w') as f:
-                    f.write(self.log_text.get(1.0, tk.END))
-                logging.info(f"Log saved to {filename}")
+                config = Config.from_file(filename)
+                self.matrix_sizes_var.set(', '.join(map(str, config.test_sizes)))
+                self.worker_counts_var.set(', '.join(map(str, config.worker_counts)))
+                self.block_size_var.set(str(config.block_size))
+                self.output_dir_var.set(config.output_dir)
+                self.log_level_var.set(config.log_level)
             except Exception as e:
-                logging.error(f"Error saving log: {e}")
+                logging.error(f"Error loading config: {e}")
                 
-    def show_latest_plot(self):
-        """Show the latest performance plot."""
-        try:
-            output_dir = self.output_dir_var.get()
-            plot_files = list(Path(output_dir).glob("performance_comparison_*.png"))
-            if not plot_files:
-                logging.warning("No performance plots found in output directory")
-                return
+    def save_config(self):
+        """Save current configuration to a JSON file."""
+        filename = filedialog.asksaveasfilename(
+            defaultextension='.json',
+            filetypes=[('JSON files', '*.json'), ('All files', '*.*')],
+            title='Save Configuration'
+        )
+        if filename:
+            try:
+                config = {
+                    'test_sizes': [int(x.strip()) for x in self.matrix_sizes_var.get().split(',')],
+                    'worker_counts': [int(x.strip()) for x in self.worker_counts_var.get().split(',')],
+                    'block_size': int(self.block_size_var.get()),
+                    'output_dir': self.output_dir_var.get(),
+                    'log_level': self.log_level_var.get()
+                }
+                with open(filename, 'w') as f:
+                    json.dump(config, f, indent=4)
+            except Exception as e:
+                logging.error(f"Error saving config: {e}")
                 
-            latest_plot = max(plot_files, key=os.path.getctime)
-            os.startfile(latest_plot)
-            logging.info(f"Opened plot: {latest_plot}")
-        except Exception as e:
-            logging.error(f"Error opening plot: {e}")
-            
-    def open_output_dir(self):
-        """Open the output directory in file explorer."""
-        try:
-            output_dir = self.output_dir_var.get()
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            os.startfile(output_dir)
-            logging.info(f"Opened output directory: {output_dir}")
-        except Exception as e:
-            logging.error(f"Error opening directory: {e}")
-            
-    def show_performance_data(self):
-        """Show the latest performance data."""
-        try:
-            output_dir = self.output_dir_var.get()
-            data_files = list(Path(output_dir).glob("performance_results_*.json"))
-            if not data_files:
-                logging.warning("No performance data found in output directory")
-                return
-                
-            latest_data = max(data_files, key=os.path.getctime)
-            os.startfile(latest_data)
-            logging.info(f"Opened data file: {latest_data}")
-        except Exception as e:
-            logging.error(f"Error opening data file: {e}")
-    
-    def run_benchmark(self):
-        """Start the benchmark thread."""
-        # Validate input
-        try:
-            # Parse matrix sizes
-            sizes = self.matrix_sizes_var.get().split(',')
-            sizes = [int(size.strip()) for size in sizes]
-            if not sizes:
-                raise ValueError("No matrix sizes specified")
-                
-            # Check if any methods are selected
-            if not any(var.get() for var in self.method_vars.values()):
-                raise ValueError("No methods selected")
-                
-            # Disable controls during benchmark
-            self.disable_controls()
-            
-            # Start benchmark in a separate thread
-            self.benchmark_thread = threading.Thread(
-                target=self.run_benchmark_thread,
-                daemon=True
-            )
-            self.benchmark_thread.start()
-            
-            # Update status
-            self.status_var.set("Running benchmark...")
-            self.progress.start()
-            
-        except Exception as e:
-            logging.error(f"Error starting benchmark: {e}")
-            self.enable_controls()
-            
-    def stop_benchmark(self):
-        """Stop the benchmark."""
-        # This is a simple implementation that just re-enables controls
-        # A more comprehensive implementation would use an event to signal the thread to stop
-        logging.warning("Stopping benchmark...")
-        self.enable_controls()
-        self.progress.stop()
-        self.status_var.set("Benchmark stopped")
+    def setup_logging(self):
+        """Set up logging to the GUI's text widget."""
+        self.logging_handler = GuiLoggingHandler(self.log_text)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        self.logging_handler.setFormatter(formatter)
+        root_logger = logging.getLogger()
+        root_logger.addHandler(self.logging_handler)
+        root_logger.setLevel(getattr(logging, self.log_level_var.get()))
         
-    def disable_controls(self):
-        """Disable controls during benchmark execution."""
-        self.run_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-        
-    def enable_controls(self):
-        """Enable controls after benchmark completion."""
-        self.run_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)
-        self.progress.stop()
-        
+    def cleanup_logging(self):
+        """Clean up logging handler."""
+        if self.logging_handler:
+            root_logger = logging.getLogger()
+            root_logger.removeHandler(self.logging_handler)
+            self.logging_handler = None
+            
     def update_results_buttons(self):
-        """Update the state of results buttons."""
-        self.show_plot_button.config(state=tk.NORMAL)
-        self.show_data_button.config(state=tk.NORMAL)
-        
+        """Update the results buttons based on available files."""
+        # Clear existing buttons
+        for widget in self.results_buttons_frame.winfo_children():
+            widget.destroy()
+            
+        # Look for plot files
+        output_dir = Path(self.output_dir_var.get())
+        if output_dir.exists():
+            plot_files = list(output_dir.glob('performance_comparison_*.png'))
+            for plot_file in plot_files:
+                ttk.Button(
+                    self.results_buttons_frame,
+                    text=f'View {plot_file.name}',
+                    command=lambda f=plot_file: os.startfile(f)
+                ).pack(side=tk.LEFT, padx=5)
+                
     def animate_multiplication(self, a, b, method_name):
         """Animate the matrix multiplication process."""
         m, n = a.shape
@@ -840,8 +719,86 @@ class MatrixMultiplicationGUI:
             # Re-enable buttons
             self.root.after(0, self.enable_controls)
             self.cleanup_logging()
+            
+    def enable_controls(self):
+        """Enable control buttons."""
+        self.run_btn.configure(state='normal')
+        self.load_config_btn.configure(state='normal')
+        self.save_config_btn.configure(state='normal')
+        
+    def disable_controls(self):
+        """Disable control buttons."""
+        self.run_btn.configure(state='disabled')
+        self.load_config_btn.configure(state='disabled')
+        self.save_config_btn.configure(state='disabled')
+        
+    def validate_inputs(self):
+        """Validate user inputs before running benchmark."""
+        try:
+            # Check matrix sizes
+            sizes = [int(x.strip()) for x in self.matrix_sizes_var.get().split(',')]
+            if not sizes or any(size <= 0 for size in sizes):
+                raise ValueError("Matrix sizes must be positive integers")
+            
+            # Check worker counts
+            workers = [int(x.strip()) for x in self.worker_counts_var.get().split(',')]
+            if not workers or any(count <= 0 for count in workers):
+                raise ValueError("Worker counts must be positive integers")
+            
+            # Check block size
+            block_size = int(self.block_size_var.get())
+            if block_size <= 0:
+                raise ValueError("Block size must be a positive integer")
+            
+            # Check number of runs
+            num_runs = int(self.num_runs_var.get())
+            if num_runs <= 0:
+                raise ValueError("Number of runs must be a positive integer")
+            
+            # Check if any method is selected
+            if not any(var.get() for var in self.method_vars.values()):
+                raise ValueError("At least one method must be selected")
+            
+            return True
+            
+        except ValueError as e:
+            logging.error(f"Validation error: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"Unexpected error during validation: {e}")
+            return False
 
-if __name__ == "__main__":
+    def run_benchmark(self):
+        """Start the benchmark in a separate thread."""
+        if not self.validate_inputs():
+            return
+            
+        # Disable buttons during benchmark
+        self.run_btn.configure(state='disabled')
+        
+        # Clear log
+        self.clear_log()
+        
+        # Setup logging
+        self.setup_logging()
+        
+        # Create output directory if it doesn't exist
+        output_dir = Path(self.output_dir_var.get())
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Start benchmark thread
+        self.benchmark_thread = threading.Thread(target=self.run_benchmark_thread)
+        self.benchmark_thread.start()
+
+
+def main():
+    """Main entry point for the GUI application."""
     root = tk.Tk()
     app = MatrixMultiplicationGUI(root)
     root.mainloop()
+
+
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
+    main() 
